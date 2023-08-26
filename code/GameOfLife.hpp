@@ -1,11 +1,24 @@
 #ifndef dGameOfLife_Hpp
 #define dGameOfLife_Hpp
 //headers
+//-//standard
 #include <cstdlib>
+//-//-//meta
+#include <functional>
+#include <type_traits>
+//-//-//template-library
+#include <unordered_map>
+#include <map>
+#include <vector>
+#include <list>
+//-//-//strings
 #include <string_view>
 #include <string>
-#include <unordered_map>
+//-//-//data
+#include <memory>
 #include <iostream>
-#include <functional>
+//-//external
+#include <SFML/System.hpp>
+#include <SFML/Graphics.hpp>
 //content
 #endif//dGameOfLife_Hpp

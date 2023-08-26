@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.24)
 
+include(FetchContent)
+
+# proj
+
 set(vProjName "GameOfLife")
 set(vProjVnum "0.0")
 set(vProjDesc "just another ConwayGameOfLife implemented by nikozdev")
@@ -46,6 +50,17 @@ target_sources(${vTexeName} PRIVATE ${vCodeFile})
 target_include_directories(${vTexeName} PRIVATE ${vHeadPath})
 target_precompile_headers(${vTexeName} PRIVATE ${vHeadFile})
 
+find_package(SFML 2.6.0 COMPONENTS system graphics)
+if(NOT SFML_FOUND)
+  FetchContent_Declare(SFML
+    GIT_REPOSITORY "https://github.com/SFML/SFML.git"
+    GIT_TAG "2.6.0"
+    OVERRIDE_FIND_PACKAGE)
+  FetchContent_MakeAvailable(SFML)
+  find_package(SFML 2.6.0 REQUIRED COMPONENTS system graphics)
+endif(NOT SFML_FOUND)
+target_link_libraries(${vTexeName} PRIVATE sfml-system sfml-graphics)
+
 # test
 
 enable_testing()
@@ -57,3 +72,5 @@ function(fTest vName vText)
 endfunction(fTest)
 
 fTest("Hello" "HelloWorld")
+fTest("SfmlWindow" "HelloWindow")
+fTest("tGame_fMain" "tGame.fMain == vTruth")
