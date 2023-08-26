@@ -27,9 +27,13 @@ public://typedef
 	using tDrawUnit = std::shared_ptr<sf::Drawable>;
 	using tDrawList = std::vector<tDrawUnit>;
 
+	using tKeyCode = sf::Keyboard::Key;
+	using tKeyFunc = std::function<void(tGame &)>;
+	using tKeyList = std::map<tKeyCode, tKeyFunc>;
+
 public://actions
 
-	auto fInit()
+	bool fInit()
 	{
 		if(this->vWorkFlag != vFalse)
 		{
@@ -38,9 +42,9 @@ public://actions
 		}
 		//system
 		auto vVideoMode = sf::VideoMode{
-			0x400,//width
-			0x400,//height
-			0x20, //bits per pixel
+			(0x400 * vRatioX) / vRatioM,
+			(0x400 * vRatioY) / vRatioM,
+			0x08,//bits per pixel
 		};
 		auto vConSetup = sf::ContextSettings{
 			0,																			//depthBits
@@ -69,17 +73,43 @@ public://actions
 			128.0,
 			128.0,
 		}));
-    this->vViewRect = tViewRect{
-      0.0f,
-      0.0f,
-      static_cast<float>(this->vWindow.getSize().x),
-      static_cast<float>(this->vWindow.getSize().y),
-    };
+		this->vViewUnit.reset(tViewRect{
+			0.0f,
+			0.0f,
+			static_cast<float>(this->vWindow.getSize().x),
+			static_cast<float>(this->vWindow.getSize().y),
+		});
+		//keyboard
+		constexpr float vViewStep		= 100.0f;
+		this->vKeyList[tKeyCode::Q] = [](tGame &vGame)
+		{
+			vGame.fStop();
+		};
+		this->vKeyList[tKeyCode::A] = [](tGame &vGame)
+		{
+			vGame.vViewUnit.move(-vViewStep, 0.0f);
+		};
+		this->vKeyList[tKeyCode::D] = [](tGame &vGame)
+		{
+			vGame.vViewUnit.move(+vViewStep, 0.0f);
+		};
+		this->vKeyList[tKeyCode::S] = [](tGame &vGame)
+		{
+			vGame.vViewUnit.move(0.0f, -vViewStep);
+		};
+		this->vKeyList[tKeyCode::W] = [](tGame &vGame)
+		{
+			vGame.vViewUnit.move(0.0f, +vViewStep);
+		};
+		this->vKeyList[tKeyCode::R] = [](tGame &vGame)
+		{
+			vGame.vViewUnit.setCenter(0.0f, 0.0f);
+		};
 		//final
 		this->vWorkFlag = vTruth;
 		return vTruth;
 	}//fInit
-	auto fQuit()
+	bool fQuit()
 	{
 		if(this->vWorkFlag != vFalse)
 		{
@@ -88,7 +118,7 @@ public://actions
 		}
 		return ((this->vWorkFlag = vTruth) == vTruth);
 	}//fQuit
-	auto fStop()
+	bool fStop()
 	{
 		if(this->vWorkFlag != vTruth)
 		{
@@ -103,7 +133,7 @@ public://actions
 		return vTruth;
 	}//fStop
 
-	auto fProc()
+	bool fProc()
 	{
 		sf::Event vEvent;
 		while(this->vWindow.pollEvent(vEvent))
@@ -117,12 +147,27 @@ public://actions
 			break;
 			case sf::Event::Resized:
 			{
-				this->vViewRect = tViewRect{
-					0.0f,
-					0.0f,
+				this->vViewUnit.setSize({
 					static_cast<float>(vEvent.size.width),
 					static_cast<float>(vEvent.size.height),
-				};
+				});
+			}
+			break;
+			case sf::Event::TextEntered:
+			{//event.text
+			}
+			break;
+			case sf::Event::KeyPressed:
+			{
+			}
+			break;
+			case sf::Event::KeyReleased:
+			{
+				auto vKeyIter = this->vKeyList.find(vEvent.key.code);
+				if(vKeyIter != this->vKeyList.end())
+				{
+					vKeyIter->second(*this);
+				}
 			}
 			break;
 			default: break;
@@ -130,20 +175,22 @@ public://actions
 		}
 		return vTruth;
 	}//fProc
-	auto fDraw()
+	bool fDraw()
 	{
-		this->vWindow.clear(sf::Color(0x10, 0x10, 0x10, 0xff));
-		this->vViewUnit = sf::View(this->vViewRect);
+		//view
 		this->vWindow.setView(this->vViewUnit);
+		//draw
 		for(auto &vDrawUnit: this->vDrawList)
 		{
 			this->vWindow.draw(*vDrawUnit);
 		}
+		//show
 		this->vWindow.display();
+		this->vWindow.clear(sf::Color(0x10, 0x10, 0x10, 0xff));
 		return vTruth;
 	}//fDraw
 
-	auto fLoop()
+	bool fLoop()
 	{
 		while(this->vWorkFlag && this->vWindow.isOpen())
 		{
@@ -157,7 +204,7 @@ public://actions
 		}
 		return vTruth;
 	}//fLoop
-	auto fMain()
+	bool fMain()
 	{
 		if(this->vWorkFlag)
 		{
@@ -178,10 +225,15 @@ private://datadef
 
 	tWindow vWindow;
 
+	static constexpr unsigned vRatioX = 16;
+	static constexpr unsigned vRatioY = 9;
+	static constexpr unsigned vRatioM = std::max(vRatioX, vRatioY);
+
 	tViewUnit vViewUnit;
-	tViewRect vViewRect;
 
 	tDrawList vDrawList;
+
+	tKeyList vKeyList;
 
 };//tGame
 //actions
