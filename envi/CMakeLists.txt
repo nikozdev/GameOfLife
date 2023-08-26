@@ -73,3 +73,4 @@ endfunction(fTest)
 
 fTest("Hello" "HelloWorld")
 fTest("SfmlWindow" "HelloWindow")
+fTest("tGame_fMain" "tGame.fMain == vTruth")
