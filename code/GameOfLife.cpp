@@ -19,8 +19,13 @@ class tGame final
 {
 public://typedef
 
-	using tCamera = sf::View;
-	using tWindow = sf::Window;
+	using tWindow = sf::RenderWindow;
+
+	using tViewUnit = sf::View;
+	using tViewRect = sf::FloatRect;
+
+	using tDrawUnit = std::shared_ptr<sf::Drawable>;
+	using tDrawList = std::vector<tDrawUnit>;
 
 public://actions
 
@@ -31,7 +36,7 @@ public://actions
 			std::cerr << "[tGame::fInit] WorkFlag is expected to be False" << std::endl;
 			return vFalse;
 		}
-		//window
+		//system
 		auto vVideoMode = sf::VideoMode{
 			0x400,//width
 			0x400,//height
@@ -51,9 +56,27 @@ public://actions
 		vWindowStyle |= sf::Style::Close;
 		vWindowStyle |= sf::Style::Titlebar;
 		this->vWindow.create(vVideoMode, "GameOfLife", vWindowStyle, vConSetup);
-		//this->vWindow.setView(this->vCamera);
+		if constexpr(vTruth)
+		{
+			this->vWindow.setVerticalSyncEnabled(vTruth);
+		}
+		else
+		{
+			this->vWindow.setFramerateLimit(30);
+		}
+		//graphics
+		this->vDrawList.push_back(std::make_shared<sf::RectangleShape>(sf::Vector2f{
+			128.0,
+			128.0,
+		}));
+    this->vViewRect = tViewRect{
+      0.0f,
+      0.0f,
+      static_cast<float>(this->vWindow.getSize().x),
+      static_cast<float>(this->vWindow.getSize().y),
+    };
 		//final
-    this->vWorkFlag = vTruth;
+		this->vWorkFlag = vTruth;
 		return vTruth;
 	}//fInit
 	auto fQuit()
@@ -63,7 +86,6 @@ public://actions
 			std::cerr << "[tGame::fQuit] WorkFlag is expected to be False" << std::endl;
 			return vFalse;
 		}
-		//final
 		return ((this->vWorkFlag = vTruth) == vTruth);
 	}//fQuit
 	auto fStop()
@@ -74,23 +96,33 @@ public://actions
 			return vFalse;
 		}
 		this->vWorkFlag = vFalse;
-    if (this->vWindow.isOpen())
-    {
-      this->vWindow.close();
-    }
+		if(this->vWindow.isOpen())
+		{
+			this->vWindow.close();
+		}
 		return vTruth;
 	}//fStop
 
 	auto fProc()
 	{
 		sf::Event vEvent;
-    while(this->vWindow.pollEvent(vEvent))
+		while(this->vWindow.pollEvent(vEvent))
 		{
 			switch(vEvent.type)
 			{
 			case sf::Event::Closed:
 			{
-        this->fStop();
+				this->fStop();
+			}
+			break;
+			case sf::Event::Resized:
+			{
+				this->vViewRect = tViewRect{
+					0.0f,
+					0.0f,
+					static_cast<float>(vEvent.size.width),
+					static_cast<float>(vEvent.size.height),
+				};
 			}
 			break;
 			default: break;
@@ -100,22 +132,29 @@ public://actions
 	}//fProc
 	auto fDraw()
 	{
+		this->vWindow.clear(sf::Color(0x10, 0x10, 0x10, 0xff));
+		this->vViewUnit = sf::View(this->vViewRect);
+		this->vWindow.setView(this->vViewUnit);
+		for(auto &vDrawUnit: this->vDrawList)
+		{
+			this->vWindow.draw(*vDrawUnit);
+		}
+		this->vWindow.display();
 		return vTruth;
 	}//fDraw
 
 	auto fLoop()
 	{
-    while(this->vWorkFlag && this->vWindow.isOpen())
+		while(this->vWorkFlag && this->vWindow.isOpen())
 		{
-    
 			this->fProc();
 			this->fDraw();
 		}
-    if(this->vWorkFlag || this->vWindow.isOpen())
-    {
-      std::cerr << "[tGame::fLoop] fStop edge case !" << std::endl;
-      this->fStop();
-    }
+		if(this->vWorkFlag || this->vWindow.isOpen())
+		{
+			std::cerr << "[tGame::fLoop] fStop edge case !" << std::endl;
+			this->fStop();
+		}
 		return vTruth;
 	}//fLoop
 	auto fMain()
@@ -139,7 +178,10 @@ private://datadef
 
 	tWindow vWindow;
 
-	tCamera vCamera;
+	tViewUnit vViewUnit;
+	tViewRect vViewRect;
+
+	tDrawList vDrawList;
 
 };//tGame
 //actions
