@@ -17,15 +17,20 @@ using tTestRef = tTestTab::iterator;
 //-//primary
 class tGame final
 {
-public://codetor
+public://typedef
 
-	tGame()	 = default;
-	~tGame() = default;
+	using tCamera = sf::View;
+	using tWindow = sf::Window;
 
 public://actions
 
 	auto fInit()
 	{
+		if(this->vWorkFlag != vFalse)
+		{
+			std::cerr << "[tGame::fInit] WorkFlag is expected to be False" << std::endl;
+			return vFalse;
+		}
 		//window
 		auto vVideoMode = sf::VideoMode{
 			0x400,//width
@@ -46,24 +51,46 @@ public://actions
 		vWindowStyle |= sf::Style::Close;
 		vWindowStyle |= sf::Style::Titlebar;
 		this->vWindow.create(vVideoMode, "GameOfLife", vWindowStyle, vConSetup);
+		//this->vWindow.setView(this->vCamera);
 		//final
+    this->vWorkFlag = vTruth;
 		return vTruth;
 	}//fInit
 	auto fQuit()
 	{
-		return vTruth;
+		if(this->vWorkFlag != vFalse)
+		{
+			std::cerr << "[tGame::fQuit] WorkFlag is expected to be False" << std::endl;
+			return vFalse;
+		}
+		//final
+		return ((this->vWorkFlag = vTruth) == vTruth);
 	}//fQuit
+	auto fStop()
+	{
+		if(this->vWorkFlag != vTruth)
+		{
+			std::cerr << "[tGame::fStop] WorkFlag is expected to be Truth" << std::endl;
+			return vFalse;
+		}
+		this->vWorkFlag = vFalse;
+    if (this->vWindow.isOpen())
+    {
+      this->vWindow.close();
+    }
+		return vTruth;
+	}//fStop
 
 	auto fProc()
 	{
 		sf::Event vEvent;
-		while(vWindow.pollEvent(vEvent))
+    while(this->vWindow.pollEvent(vEvent))
 		{
 			switch(vEvent.type)
 			{
 			case sf::Event::Closed:
 			{
-				vWindow.close();
+        this->fStop();
 			}
 			break;
 			default: break;
@@ -75,27 +102,44 @@ public://actions
 	{
 		return vTruth;
 	}//fDraw
+
 	auto fLoop()
 	{
-		while(this->vWindow.isOpen())
+    while(this->vWorkFlag && this->vWindow.isOpen())
 		{
+    
 			this->fProc();
 			this->fDraw();
 		}
+    if(this->vWorkFlag || this->vWindow.isOpen())
+    {
+      std::cerr << "[tGame::fLoop] fStop edge case !" << std::endl;
+      this->fStop();
+    }
 		return vTruth;
 	}//fLoop
-
 	auto fMain()
 	{
-		this->fInit();
-		this->fLoop();
-		this->fQuit();
-		return vTruth;
+		if(this->vWorkFlag)
+		{
+			return vFalse;
+		}
+		else
+		{
+			this->fInit();
+			this->fLoop();
+			this->fQuit();
+			return vTruth;
+		}
 	}//fMain
 
 private://datadef
 
-	sf::Window vWindow;
+	bool vWorkFlag = vFalse;
+
+	tWindow vWindow;
+
+	tCamera vCamera;
 
 };//tGame
 //actions
@@ -175,12 +219,12 @@ tTestTab vTestTab = {
 	 {
 		 if(tGame().fMain())
 		 {
-       std::cerr << "tGame.fMain == vTruth" << std::endl;
+			 std::cerr << "tGame.fMain == vTruth" << std::endl;
 			 return EXIT_SUCCESS;
 		 }
 		 else
 		 {
-       std::cerr << "tGame.fMain == vFalse" << std::endl;
+			 std::cerr << "tGame.fMain == vFalse" << std::endl;
 			 return EXIT_FAILURE;
 		 }
 	 }},
