@@ -12,6 +12,7 @@
 #include <array>
 #include <vector>
 #include <list>
+#include <random>
 //-//-//strings
 #include <string_view>
 #include <string>
