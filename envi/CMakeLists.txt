@@ -5,7 +5,7 @@ include(FetchContent)
 # proj
 
 set(vProjName "GameOfLife")
-set(vProjVnum "1.0")
+set(vProjVnum "2.0")
 set(vProjDesc "just another ConwayGameOfLife implemented by nikozdev")
 set(vProjPath "${CMAKE_SOURCE_DIR}/..")
 

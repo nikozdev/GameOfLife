@@ -9,6 +9,7 @@
 //-//-//template-library
 #include <unordered_map>
 #include <map>
+#include <array>
 #include <vector>
 #include <list>
 //-//-//strings

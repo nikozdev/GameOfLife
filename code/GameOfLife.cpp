@@ -5,6 +5,8 @@
 //consdef
 constexpr bool vFalse = 0;
 constexpr bool vTruth = 1;
+constexpr size_t vGridSize = 0x100;
+constexpr size_t vLineSize = 0x100;
 //typedef
 using tCstr = std::string_view;
 using tDstr = std::string;
@@ -19,7 +21,8 @@ struct tCell final
 {
 	bool vAlive = vFalse;
 };//tCell
-using tCellGrid = std::unordered_map<int, std::unordered_map<int, tCell>>;
+using tLine = std::array<tCell, vLineSize>;
+using tGrid = std::array<tLine, vGridSize>;
 class tGame final
 {
 public://typedef
@@ -35,21 +38,50 @@ public://typedef
 	using tKeyFunc = std::function<void(tGame &)>;
 	using tKeyList = std::map<tKeyCode, tKeyFunc>;
 
-public://vetters
+public://getters
 
-	auto fGetCellFriendCount(sf::Vector2i vPos)
+	auto &fGetLine(signed vKeyY)
 	{
-		size_t vFriendCount = 0;
-		vFriendCount += this->vCellGrid[vPos.y - 1][vPos.x - 1].vAlive;
-		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x - 1].vAlive;
-		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x + 0].vAlive;
-		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x + 1].vAlive;
-		vFriendCount += this->vCellGrid[vPos.y - 1][vPos.x + 0].vAlive;
-		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x + 0].vAlive;
-		vFriendCount += this->vCellGrid[vPos.y + 1][vPos.x + 0].vAlive;
-		vFriendCount += this->vCellGrid[vPos.y + 1][vPos.x + 1].vAlive;
-		return vFriendCount;
+		return this->vGrid.at(vKeyY % vGridSize);
 	}
+	auto &fGetLine(signed vKeyY) const
+	{
+		return this->vGrid.at(vKeyY % vGridSize);
+	}
+	auto &fGetCell(signed vKeyY, signed vKeyX)
+	{
+		auto &vLine = this->fGetLine(vKeyY);
+		return vLine.at(vKeyX % vLineSize);
+	}
+	auto &fGetCell(signed vKeyY, signed vKeyX) const
+	{
+		auto &vLine = this->fGetLine(vKeyY);
+		return vLine.at(vKeyX % vLineSize);
+	}
+	auto fGetCellCountAround(signed vKeyY, signed vKeyX) const
+	{
+		unsigned char vCount = 0;
+		//corners
+		vCount += this->fGetCell(vKeyY - 1, vKeyX - 1).vAlive;
+		vCount += this->fGetCell(vKeyY - 1, vKeyX + 1).vAlive;
+		vCount += this->fGetCell(vKeyY + 1, vKeyX - 1).vAlive;
+		vCount += this->fGetCell(vKeyY + 1, vKeyX + 1).vAlive;
+		//sides
+		vCount += this->fGetCell(vKeyY + 0, vKeyX - 1).vAlive;
+		vCount += this->fGetCell(vKeyY + 0, vKeyX + 1).vAlive;
+		vCount += this->fGetCell(vKeyY - 1, vKeyX + 0).vAlive;
+		vCount += this->fGetCell(vKeyY + 1, vKeyX + 0).vAlive;
+		//
+		return vCount;
+	}
+
+public://setters
+
+	auto fSetCell(signed vKeyY, signed vKeyX, tCell vVal)
+	{
+		auto &vLine = this->vGrid.at(vKeyY % vGridSize);
+		return vLine.at(vKeyX % vLineSize) = vVal;
+	}//fSetCell
 
 public://actions
 
@@ -95,7 +127,7 @@ public://actions
 			static_cast<float>(this->vWindow.getSize().x),
 			static_cast<float>(this->vWindow.getSize().y),
 		});
-		this->vViewUnit.setCenter(0.0f, 0.0f);
+		//this->vViewUnit.setCenter(0.0f, 0.0f);
 		//keyboard
 		constexpr float vViewStep		= 100.0f;
 		this->vKeyList[tKeyCode::Q] = [](tGame &vGame)
@@ -123,14 +155,14 @@ public://actions
 			vGame.vViewUnit.setCenter(0.0f, 0.0f);
 		};
 		//logic
-    auto vRadius = 2;
-		for(auto vY = -vRadius; vY <= +vRadius; vY++)
+		signed vR = 10;
+		for(signed vY = -vR; vY <= +vR; vY++)
 		{
-			for(auto vX = -vRadius; vX <= +vRadius; vX++)
+			for(signed vX = -vR; vX <= +vR; vX++)
 			{
-				if((vX * vX + vY * vY) < (vRadius * vRadius))
+				if((vX * vX + vY * vY) < (vR * vR))
 				{
-					this->vCellGrid[vY][vX].vAlive = true;
+					this->fSetCell(vY, vX, {vTruth});
 				}
 			}
 		}
@@ -163,37 +195,31 @@ public://actions
 		return vTruth;
 	}//fStop
 
+	bool fProcGrid()
+	{
+    vClockPointNow = vClock.getElapsedTime().asMilliseconds() / vProcGridPause;
+		if(vClockPointNow == vClockPointWas)
+		{
+			return vFalse;
+		}
+    vClockPointWas = vClockPointNow;
+		tGrid vGrid = this->vGrid;//deliberately make a copy
+		for(auto vKeyY = 0; vKeyY < vGridSize; vKeyY++)
+		{
+			auto &vLine = vGrid.at(vKeyY);//this->fGetLine(vKeyY);
+			for(auto vKeyX = 0; vKeyX < vLineSize; vKeyX++)
+			{
+				auto &vCell	 = vLine.at(vKeyX);//this->fGetCell(vKeyY, vKeyX);
+				auto	vCount = this->fGetCellCountAround(vKeyY, vKeyX);
+				vCell.vAlive = (vCount >= 2 && vCount <= 3) || (vCount == 3);
+			}
+		}
+		this->vGrid = vGrid;
+		return vTruth;
+	}//fProcGrid
 	bool fProc()
 	{
-#if 1
-		if(vClock.getElapsedTime().asMilliseconds() % 1'000 == 0)
-		{
-			for(auto &vRefY: this->vCellGrid)
-			{
-				auto	vKeyY = vRefY.first;
-				auto &vLine = vRefY.second;
-				for(auto &vRefX: vLine)
-				{
-					auto	vKeyX = vRefX.first;
-					auto &vCell = vRefX.second;
-					for(signed vIY = -1; vIY <= +1; vIY++)
-					{
-						for(signed vIX = -1; vIX <= +1; vIX++)
-						{
-							unsigned vFriendCount = fGetCellFriendCount({
-								vKeyX + vIX,
-								vKeyY + vIY,
-							});
-							vCellGrid[vKeyY + vIY][vKeyX + vIX].vAlive
-								= (vFriendCount >= 2 && vFriendCount <= 3)
-							 || (vFriendCount == 3);
-						}
-					}
-				}
-			}
-			std::cout << "update" << std::endl;
-		}
-#endif
+		fProcGrid();
 		sf::Event vEvent;
 		while(this->vWindow.pollEvent(vEvent))
 		{
@@ -239,18 +265,26 @@ public://actions
 		//view
 		this->vWindow.setView(this->vViewUnit);
 		//draw
-		for(auto &vRefY: this->vCellGrid)
+		auto vCellSize = sf::Vector2f{
+			0.75f * static_cast<float>(vWindow.getSize().x)
+				/ static_cast<float>(vLineSize),
+			0.75f * static_cast<float>(vWindow.getSize().y)
+				/ static_cast<float>(vGridSize),
+		};
+		auto vCellStep = sf::Vector2f{
+			0.25f * static_cast<float>(vWindow.getSize().x)
+				/ static_cast<float>(vLineSize),
+			0.25f * static_cast<float>(vWindow.getSize().y)
+				/ static_cast<float>(vGridSize),
+		};
+		for(auto vKeyY = 0; vKeyY < vGridSize; vKeyY++)
 		{
-			auto	vKeyY = vRefY.first;
-			auto &vLine = vRefY.second;
-			for(auto &vRefX: vLine)
+			auto &vLine = this->fGetLine(vKeyY);
+			for(auto vKeyX = 0; vKeyX < vLineSize; vKeyX++)
 			{
-				auto	vKeyX = vRefX.first;
-				auto &vCell = vRefX.second;
+				auto &vCell = this->fGetCell(vKeyY, vKeyX);
 				if(vCell.vAlive)
 				{
-					auto vCellSize = sf::Vector2f{3.0f, 3.0f};
-					auto vCellStep = sf::Vector2f{1.0f, 1.0f};
 					auto vCellRect = sf::RectangleShape(vCellSize);
 					vCellRect.setPosition({
 						(vKeyX * vCellSize.x) + (vKeyX * vCellStep.x),
@@ -304,18 +338,20 @@ private://datadef
 	bool vWorkFlag = vFalse;
 
 	sf::Clock vClock;
+  sf::Uint32 vClockPointWas, vClockPointNow;
+  sf::Uint32 vProcGridPause = 1;
 
 	tWindow vWindow;
 
-	static constexpr unsigned vRatioX = 16;
-	static constexpr unsigned vRatioY = 9;
+	static constexpr unsigned vRatioX = 8;
+	static constexpr unsigned vRatioY = 8;
 	static constexpr unsigned vRatioM = std::max(vRatioX, vRatioY);
 
 	tViewUnit vViewUnit;
 
 	tKeyList vKeyList;
 
-	tCellGrid vCellGrid;
+	tGrid vGrid;
 
 };//tGame
 //actions
