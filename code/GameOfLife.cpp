@@ -14,7 +14,12 @@ using tTestOut = int;
 using tTestFun = std::function<tTestOut(void)>;
 using tTestTab = std::unordered_map<tTestKey, tTestFun>;
 using tTestRef = tTestTab::iterator;
-//-//primary
+//-//gameplay
+struct tCell final
+{
+	bool vAlive = vFalse;
+};//tCell
+using tCellGrid = std::unordered_map<int, std::unordered_map<int, tCell>>;
 class tGame final
 {
 public://typedef
@@ -25,11 +30,26 @@ public://typedef
 	using tViewRect = sf::FloatRect;
 
 	using tDrawUnit = std::shared_ptr<sf::Drawable>;
-	using tDrawList = std::vector<tDrawUnit>;
 
 	using tKeyCode = sf::Keyboard::Key;
 	using tKeyFunc = std::function<void(tGame &)>;
 	using tKeyList = std::map<tKeyCode, tKeyFunc>;
+
+public://vetters
+
+	auto fGetCellFriendCount(sf::Vector2i vPos)
+	{
+		size_t vFriendCount = 0;
+		vFriendCount += this->vCellGrid[vPos.y - 1][vPos.x - 1].vAlive;
+		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x - 1].vAlive;
+		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x + 0].vAlive;
+		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x + 1].vAlive;
+		vFriendCount += this->vCellGrid[vPos.y - 1][vPos.x + 0].vAlive;
+		vFriendCount += this->vCellGrid[vPos.y + 0][vPos.x + 0].vAlive;
+		vFriendCount += this->vCellGrid[vPos.y + 1][vPos.x + 0].vAlive;
+		vFriendCount += this->vCellGrid[vPos.y + 1][vPos.x + 1].vAlive;
+		return vFriendCount;
+	}
 
 public://actions
 
@@ -69,16 +89,13 @@ public://actions
 			this->vWindow.setFramerateLimit(30);
 		}
 		//graphics
-		this->vDrawList.push_back(std::make_shared<sf::RectangleShape>(sf::Vector2f{
-			128.0,
-			128.0,
-		}));
 		this->vViewUnit.reset(tViewRect{
 			0.0f,
 			0.0f,
 			static_cast<float>(this->vWindow.getSize().x),
 			static_cast<float>(this->vWindow.getSize().y),
 		});
+		this->vViewUnit.setCenter(0.0f, 0.0f);
 		//keyboard
 		constexpr float vViewStep		= 100.0f;
 		this->vKeyList[tKeyCode::Q] = [](tGame &vGame)
@@ -105,8 +122,21 @@ public://actions
 		{
 			vGame.vViewUnit.setCenter(0.0f, 0.0f);
 		};
+		//logic
+    auto vRadius = 2;
+		for(auto vY = -vRadius; vY <= +vRadius; vY++)
+		{
+			for(auto vX = -vRadius; vX <= +vRadius; vX++)
+			{
+				if((vX * vX + vY * vY) < (vRadius * vRadius))
+				{
+					this->vCellGrid[vY][vX].vAlive = true;
+				}
+			}
+		}
 		//final
 		this->vWorkFlag = vTruth;
+		this->vClock		= sf::Clock();
 		return vTruth;
 	}//fInit
 	bool fQuit()
@@ -135,6 +165,35 @@ public://actions
 
 	bool fProc()
 	{
+#if 1
+		if(vClock.getElapsedTime().asMilliseconds() % 1'000 == 0)
+		{
+			for(auto &vRefY: this->vCellGrid)
+			{
+				auto	vKeyY = vRefY.first;
+				auto &vLine = vRefY.second;
+				for(auto &vRefX: vLine)
+				{
+					auto	vKeyX = vRefX.first;
+					auto &vCell = vRefX.second;
+					for(signed vIY = -1; vIY <= +1; vIY++)
+					{
+						for(signed vIX = -1; vIX <= +1; vIX++)
+						{
+							unsigned vFriendCount = fGetCellFriendCount({
+								vKeyX + vIX,
+								vKeyY + vIY,
+							});
+							vCellGrid[vKeyY + vIY][vKeyX + vIX].vAlive
+								= (vFriendCount >= 2 && vFriendCount <= 3)
+							 || (vFriendCount == 3);
+						}
+					}
+				}
+			}
+			std::cout << "update" << std::endl;
+		}
+#endif
 		sf::Event vEvent;
 		while(this->vWindow.pollEvent(vEvent))
 		{
@@ -180,9 +239,30 @@ public://actions
 		//view
 		this->vWindow.setView(this->vViewUnit);
 		//draw
-		for(auto &vDrawUnit: this->vDrawList)
+		for(auto &vRefY: this->vCellGrid)
 		{
-			this->vWindow.draw(*vDrawUnit);
+			auto	vKeyY = vRefY.first;
+			auto &vLine = vRefY.second;
+			for(auto &vRefX: vLine)
+			{
+				auto	vKeyX = vRefX.first;
+				auto &vCell = vRefX.second;
+				if(vCell.vAlive)
+				{
+					auto vCellSize = sf::Vector2f{3.0f, 3.0f};
+					auto vCellStep = sf::Vector2f{1.0f, 1.0f};
+					auto vCellRect = sf::RectangleShape(vCellSize);
+					vCellRect.setPosition({
+						(vKeyX * vCellSize.x) + (vKeyX * vCellStep.x),
+						(vKeyY * vCellSize.y) + (vKeyY * vCellStep.y),
+					});
+					this->vWindow.draw(vCellRect);
+				}
+				else
+				{
+					continue;
+				}
+			}
 		}
 		//show
 		this->vWindow.display();
@@ -223,6 +303,8 @@ private://datadef
 
 	bool vWorkFlag = vFalse;
 
+	sf::Clock vClock;
+
 	tWindow vWindow;
 
 	static constexpr unsigned vRatioX = 16;
@@ -231,9 +313,9 @@ private://datadef
 
 	tViewUnit vViewUnit;
 
-	tDrawList vDrawList;
-
 	tKeyList vKeyList;
+
+	tCellGrid vCellGrid;
 
 };//tGame
 //actions
