@@ -153,6 +153,14 @@ public://actions
 		{
 			vGame.vViewUnit.setCenter(0.0f, 0.0f);
 		};
+		this->vKeyList[tKeyCode::H] = [](tGame &vGame)
+		{
+			vGame.vProcGridPause = std::max(vGame.vProcGridPause >> 1, 1u);
+		};
+		this->vKeyList[tKeyCode::L] = [](tGame &vGame)
+		{
+			vGame.vProcGridPause = std::min(vGame.vProcGridPause << 1, UINT_MAX << 1);
+		};
 		//logic
 		if constexpr(vFalse)
 		{
@@ -249,7 +257,8 @@ public://actions
 			{
 				auto &vCell	 = vLine.at(vKeyX);//this->fGetCell(vKeyY, vKeyX);
 				auto	vCount = this->fGetCellCountAround(vKeyY, vKeyX);
-				vCell.vAlive = (vCell.vAlive && vCount >= 2 && vCount <= 3) || (vCount == 3);
+				vCell.vAlive
+					= (vCell.vAlive && vCount >= 2 && vCount <= 3) || (vCount == 3);
 			}
 		}
 		this->vGrid = vGrid;
